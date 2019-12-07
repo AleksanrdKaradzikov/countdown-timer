@@ -86,10 +86,8 @@ export default class Countdown extends React.Component {
         seconds: 0,
         play: true,
         init: false,
-        timerId: null,
         persent: 0,
         step: 0,
-        totalTime: 0,
       },
     };
   }
@@ -102,7 +100,6 @@ export default class Countdown extends React.Component {
     if (controlName === 'slider') {
       const time = returnFormattedToSeconds(value);
       const step = 100 / (time.minutes * 60 + time.seconds);
-      const newTotalTime = time.minutes * 60 + time.seconds;
       this.setState(({ timerData: newTimerData, formControl, totalValueSlider }) => {
         formControl.minutes.value = time.minutes;
         formControl.seconds.value = time.seconds;
@@ -114,7 +111,6 @@ export default class Countdown extends React.Component {
         newTimerData.minutes = time.minutes;
         newTimerData.step = step;
         newTimerData.persent = 0;
-        newTimerData.totalTime = newTotalTime;
         totalValueSlider = value;
         return {
           timerData: newTimerData,
@@ -151,7 +147,6 @@ export default class Countdown extends React.Component {
     }
 
     timerData.step = 100 / (timerData.minutes * 60 + timerData.seconds);
-    timerData.totalTime = timerData.minutes * 60 + timerData.seconds;
     timerData.persent = 0;
 
     this.setState({
@@ -163,7 +158,6 @@ export default class Countdown extends React.Component {
   };
 
   clearAll = () => {
-    clearTimeout(this.state.timerData.timerId);
     this.setState(({ formControl }) => {
       formControl.minutes.value = 0;
       formControl.minutes.valid = true;
@@ -176,9 +170,8 @@ export default class Countdown extends React.Component {
         seconds: 0,
         play: true,
         init: false,
-        timerId: null,
         step: 0,
-        totalTime: 0,
+        persent: 0,
       };
       return {
         totalValueSlider: 0,
@@ -188,40 +181,41 @@ export default class Countdown extends React.Component {
         formControl,
       };
     });
+    clearInterval(this.timerId);
   };
 
   startTime() {
-    const { totalTime, step } = this.state.timerData;
-    const time = returnFormattedToSeconds(totalTime);
-    const timerData = { ...this.state.timerData };
+    this.timerId = setInterval(() => {
+      const { step, seconds, minutes } = this.state.timerData;
+      let newMin = minutes;
+      let newSec = seconds;
 
-    const timerId = setTimeout(() => this.startTime(), 1000);
+      if (minutes === 0 && seconds === 0) {
+        const finishedAudio = new Audio(finishedSound);
+        finishedAudio.play();
+        this.clearAll();
+        return;
+      }
+      if (newSec === 0) {
+        newSec = 59;
+        newMin -= 1;
+      } else {
+        newSec -= 1;
+      }
 
-    timerData.totalTime = totalTime - 1;
-    timerData.seconds = time.seconds;
-    timerData.minutes = time.minutes;
-    timerData.persent = Number((timerData.persent + Number(step)).toFixed(2));
-    timerData.timerId = timerId;
-
-    this.setState({
-      timerData,
-    });
-
-    if (totalTime === 0) {
-      const finishedAudio = new Audio(finishedSound);
-      finishedAudio.play();
-      this.clearAll();
-      this.setState(({ timerData: t }) => {
-        t.persent = 100;
+      this.setState(({ timerData }) => {
+        timerData.seconds = newSec;
+        timerData.minutes = newMin;
+        timerData.persent += step;
         return {
-          timerData: t,
+          timerData,
         };
       });
-    }
+    }, 1000);
   }
 
   clearFields() {
-    clearTimeout(this.state.timerData.timerId);
+    clearInterval(this.timerId);
     this.setState(({ timerData }) => {
       timerData.play = true;
       return {
@@ -232,37 +226,42 @@ export default class Countdown extends React.Component {
 
   findTime = () => {
     const { play, init, seconds, minutes } = this.state.timerData;
-    if (seconds === 0 && minutes === 0) {
-      alert('Введите время');
+    if (play && !init && (minutes > 0 || seconds > 0)) {
+      const timerData = { ...this.state.timerData };
+      const formControl = { ...this.state.formControl };
+      const totalValueSlider = 0;
+      formControl.minutes.value = 0;
+      formControl.seconds.value = 0;
+      timerData.play = false;
+      timerData.init = true;
+      this.setState(
+        {
+          formControl,
+          timerData,
+          totalValueSlider,
+        },
+        () => {
+          this.startTime();
+        }
+      );
+    }
+
+    if (!play) {
+      this.clearFields();
       return;
     }
 
-    if (play && !init) {
-      this.startTime();
-      this.setState(({ formControl, timerData }) => {
-        const newTimerData = { ...timerData };
-        newTimerData.init = true;
-        newTimerData.play = false;
-        newTimerData.persent = 0;
-        formControl.minutes.value = 0;
-        formControl.seconds.value = 0;
-        return {
-          inputDisabled: true,
-          formControl,
-          timerData: newTimerData,
-          totalValueSlider: 0,
-        };
-      });
-    } else if (play && init) {
-      this.startTime();
-      this.setState(({ timerData }) => {
-        timerData.play = false;
-        return {
+    if (play && init) {
+      const timerData = { ...this.state.timerData };
+      timerData.play = false;
+      this.setState(
+        {
           timerData,
-        };
-      });
-    } else {
-      this.clearFields();
+        },
+        () => {
+          this.startTime();
+        }
+      );
     }
   };
 
@@ -271,7 +270,7 @@ export default class Countdown extends React.Component {
     const { play, minutes, seconds, persent } = this.state.timerData;
     return (
       <div className="countdown-wrapper">
-        <BoxResult minutes={minutes} seconds={seconds} persent={persent} />
+        <BoxResult minutes={minutes} seconds={seconds} persent={Math.floor(persent)} />
         <StartForm
           formControl={formControl}
           inputDisabled={inputDisabled}

@@ -3,7 +3,7 @@ import { Tabs, Icon } from 'antd';
 import 'antd/dist/antd.css';
 import Timer from './timer';
 import Countdown from './countdown';
-import '../style/App.css';
+import '../scss/App.scss';
 
 const App = () => {
   const { TabPane } = Tabs;
